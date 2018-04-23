@@ -1,0 +1,475 @@
+---
+title: 'Snacks & Science: an introduction to R'
+author: 'Bas Baccarne'
+output:
+  pdf_document:
+    toc: yes
+    toc_depth: 4
+  word_document:
+    toc: yes
+    toc_depth: '4'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+\newpage
+
+# Part 1: The basics
+
+## Why R?  
+* Open source
+    + free!
+* Reproducible research
+    + transparent!
+* Packages
+    + flexible!
+* Data collection and transformations
+    + multi-featured!
+
+## The R interface
+- Lower left: console (commands and responses, this is R, the rest is R Studio)
+    + write commands here (try `1+1`)
+    + if it works, add to script
+    + clear console with `CTRL + L`
+- Upper left: scripts (text files)
+    + use `#` for comments
+    + use `CTRL + ENTER` to run a single line or selection
+    + save as .R files
+- Upper right: environment (data & functions)
+    + includes brief summary
+    + data.frames can be clicked
+    + clear with broom icon
+- Lower right: help
+    + type `?searchterm` in console for the help file of a function or package
+    + type `??searchterm` in console for non-exact matching searches
+
+## Data objects in R
+
+The basic element in R is a single variable (stored with `<-` or `=`)
+```{r variable} 
+# store value "the dude" in a variable called name
+name <- "the dude" 
+# store the number 43 in a variable called age
+age <- 43
+# store the logical value TRUE in a variable called male
+male <- TRUE
+# store the current time in a variable called date
+date <- Sys.time()
+# note that character data is always between " "
+```
+***
+Each variable has a class (think of it as a data type)
+```{r class} 
+class(name)
+class(age)
+class(male)
+class(date)
+```
+***
+You can play with these variables
+```{r play} 
+age / 2
+paste(name, "is cool")
+paste("the answer to life, the universe and everything is", age - 1)
+weekdays(date)
+```
+***
+Variables are often combined in arrays (e.g.)
+```{r charachterstings} 
+ninjaturtles <- c("Michelangelo", "Leonardo", "Donatello", "Raphael")
+ninjaturtles
+```
+***
+The most common data object is a data.frame (similar to Excel or SPSS)
+```{r data.frame} 
+df <- data.frame(
+    number_id = c("the first number", "the second number", "the third number"),
+    number = c(1,2,3),
+    even_number = c(FALSE, TRUE, FALSE)
+)
+df
+```
+
+## Functions in R
+
+Besides data, R also uses functions that allow more complicated processing.
+Functions are formatted as `function(arguments)`. The arguments between brackets provide the values that are processed by the function. The `rnorm()` function, for example, requires an amount of random numbers you want (n), and the mean and standard deviation of the distribution from which the random numers are drawn (mean and sd) as arguments:
+
+```{r function} 
+rnorm(n = 2, mean = 10, sd = 1)
+```
+
+Most functions come with some documentation that explains the arguments and output value.
+
+```{r documentation, eval = FALSE} 
+?rnorm
+```
+
+You can also create your own function like this:
+
+```{r own_function} 
+make_awesome <- function(name){
+    paste(name, "is super awesome!")
+}
+```
+And then use it like this (it is now also visible in your environment)
+```{r own_function_use} 
+make_awesome("R")
+```
+
+## Packages in R
+Most functions in R are bundled into packages.
+R comes with a large set of preinstalled packages (see lower-right panel > packages).
+But you can also download new packages (e.g. to get Twitter data). There are tons of packages that allow you to do the craziest things. You can install them like this:
+```{r installing_packages, eval = FALSE} 
+install.packages("ggplot2")
+```
+Once installed, you can load packages like this
+```{r loading_packages, message=FALSE, warning=FALSE} 
+library("ggplot2")
+```
+Most errors in R come from typo's or packages that are not installed or loaded. Learn how to interpret errors!
+Remember that there are packages for just about everything. Google is your friend.
+
+\newpage
+
+# Part 2: Getting data
+
+## Loading data in R
+
+You can get data from several sources, both local and online. As long as it has a certain *structure*, R can *parse* it (JSON, HTML, CSV, SAV, log files as TXT, ...).   
+
+In this example we will use sample data from the mobileDNA project, stored as a CSV file (6 respondents, one week of data).
+```{r loading_data} 
+logs <- read.csv2("sampledata.csv", as.is = TRUE)
+```
+
+You can see in the environment that we have a new data object (a data.frame) with 5699 rows and 17 variables. We can now start exploring these data.
+
+## Exploring the data
+
+```{r exploring_data} 
+# general summaries (for an extended summary: use summary(logs))
+str(logs)
+# variable names
+names(logs)
+# count the rows
+nrow(logs)
+# first rows
+head(logs)
+```
+
+## Subsetting data
+These statistics are all at the level of the total data.frame. However, most of the time we're interested in a subset of the data. Subsetting data can be done in several ways   
+
+You can both subset rows and columns:
+
+```{r subsetting_data} 
+# subsetting the second row of the third variable (id) > square brackets =  index based
+logs[2,3]
+# subsetting the same variable, through 'name subsetting' > dollar sign = name based
+logs$id[2]
+# which unique IDs are in the data
+unique(logs$id)
+# give the first timestamps
+head(logs$startTime)
+# what is the class of the variable duration_sec?
+class(logs$duration_sec)
+# crosstabs of id and notifications
+table(logs$id, logs$notification)
+```
+
+## Cleaning data
+Data is often dirty. Although the level of dirtiness can vary, some cleaning is almost always required.
+For example `logs$startTime` is a character vector and no timestamp vector. 
+```{r dirty}
+logs$startTime[1]
+class(logs$startTime)
+```
+To change this:
+```{r cleaning_data}
+# how to transform characters to dates? Provide the structure of the data (see ?strptime)
+strptime(logs$startTime[1],"%Y-%m-%dT%H:%M:%OS")
+# ok, that works
+# now overwrite the existing startTime variable with a clean one
+logs$startTime <- as.POSIXct(strptime(logs$startTime,"%Y-%m-%dT%H:%M:%OS"))
+```
+
+\newpage
+
+# Part 3: Processing & analyzing data
+
+## New variables
+In the data cleaning part, we showed how we can override variables. We can also create new variables like this
+```{r new_example}
+# add a new variable with the value TRUE for all rows
+logs$new <- TRUE
+head(logs$new)
+```
+
+Of course that's not very usefull. Most of the time, we'll want to calculate new variables based on other variables. For example, the duration variable was calculated by subtracting the startime in milliseconds from the endtime in milliseconds:
+```{r duration}
+logs$new_duration <- logs$endTimeMillis - logs$startTimeMillis 
+head(logs$new_duration)
+# oh ow, this is still in milliseconds, which is hard to interpret. 
+# Let's change this to seconds:
+logs$new_duration <- logs$new_duration/1000
+head(logs$new_duration)
+# now this looks the same as this, hurray!
+head(logs$duration)
+```
+
+Another example: let's extract the hour and the weekday of the startTime variable:
+```{r hour_weekday}
+# new variable: weekday
+logs$weekday <- weekdays(logs$startTime)
+head(logs$weekday)
+# new variable: time in hours and minutes
+logs$time <- format(logs$startTime, format = "%H:%M")
+head(logs$time)
+```
+
+This this event happen during the weekend?
+```{r weekend}
+logs$weekend <- ifelse(logs$weekday=="zaterdag" | logs$weekday=="zondag", TRUE, FALSE)
+head(logs$weekend)
+table(logs$weekend, logs$weekday)
+```
+
+#### Which other variables could we calculate? Do you have any ideas of your own?
+
+
+## Aggregations
+The examples above focused on extra variables in within the same data format (each row is an 'app event'). Another benefit of R as a research tool is its flexibility to play with different data formats. For example: we could create a data.frame with 'class hours' for every respondent and compare that to the timestamps of the app usage to add a new variable 'during class hours', TRUE/FALSE to our app event data.frame.   
+
+Another way to play with different data formats is to generate aggregated data.frames. The 'logs' data.frame is a dataframe in which each row is an **app event**, we can also easily generate data.frames in which each row is a **session**, a **day**, a **respondent**, etc. The most common way to do this is with a combination of `group_by()` and `aggregate()` (part of the 'dplyr' package). Let me show you how:
+
+```{r dplyr, message=FALSE, warning=FALSE}
+library(dplyr)
+```
+
+### Aggregate per session
+```{r agg_session}
+sessions <- logs %>%
+        # group by user id & session id
+        group_by(id, session) %>% 
+        # define summary variables
+        summarize(
+            # what was the date of this session?
+            datum = as.Date(min(startTime)),
+            # how many apps were used in this session?
+            appcount = length(application),
+            # does this session contain only social apps?
+            all_social_apps = !any(social_app == FALSE),
+            # was this session triggered by a social app?
+            social_trigger = social_app[1],
+            # what was the duration of this session
+            duration_sec = sum(duration_sec),
+            # at which hour did this session start?
+            startTijdstip = startTijdstip[1],
+            # which apps were used during this session?
+            apps = paste(application,collapse=" -> "),
+            # which weekday?
+            weekday = weekday[1],
+            # what time?
+            time = time[1],
+            # which hour?
+            hour = format(startTime, format = "%H")[1]
+            )
+
+head(sessions)
+```
+
+### Aggregate per user
+```{r agg_users}
+users <- sessions %>%
+        # group by user id & session id
+        group_by(id) %>% 
+        # define summary variables
+        summarize(
+            # how many apps did this user use?
+            appcount = sum(appcount),
+            # how many session took place during this period?
+            sessions = length(session),
+            # how many social only session took place 
+            social_only_n = sum(all_social_apps),
+            # which proportion of sessions were 'social only' sessions
+            social_only_p = sum(all_social_apps)/length(session),
+            # how many sessions were triggered by a social app?
+            social_trigger_n = sum(social_trigger),
+            # which proportion of sessions were triggered by social apps?
+            social_trigger_p = sum(social_trigger)/length(session)
+            )
+
+head(users)
+```
+
+#### Which other variables could we calculate? Do you have any ideas of your own?
+
+Pro tip: always define how your data should look like before you start processing. Know what kind of data you need, and in which format it should be.
+
+## Statistics
+Once you're done with preprocessing your data, R is also an excellent tool for data analysis. Most statistical analyses are available in the base package. For SEM, use the **lavaan** package.
+
+### T-tests
+Do sessions that are ***triggered by a social app*** have a longer ***duration***?
+```{r t-test}
+# what is the mean duration for social triggered apps versus non-social triggered apps?
+tapply(logs$duration_sec, logs$social_app, mean)
+# perform t-test
+t <- t.test(duration_sec ~ social_trigger, data = sessions)
+t$statistic
+t$parameter
+t$p.value
+# no significant difference
+```
+
+### Correlations
+Is there a correlation between ***battery level*** and the ***duration*** of the app usage?
+```{r correlation}
+r <- cor.test(logs$battery, logs$duration_sec)
+r
+# no significant correlation
+```
+
+#### Usa a similar approach for regression, chi square, SEM, ...
+
+\newpage
+
+# Part 4: Visualizing data
+This is the fun part! At least for me :)
+The most powerful dataviz engine in R is ***ggplot***, a very handy package which makes use of the principles of ***grammar of graphics*** . Grammar of graphics builds datavisualizations based on the following principles:
+
+* Data is visualized in a ***sphere*** or canvas that must be defined. Most of the time, this is a two dimensional space with an X and a Y coordinate.
+* Next, objects or ***geoms*** can be positioned within this sphere. Each row in the dataset is represented by such a geom, and the position of this geom can reflect one or two variables.
+* Finally, these geoms can vary in their ***aesthetics*** (color, shape, border, size, alpha, thickness, ...), which can all reflect another variable in the dataset
+* Additionally, you can split up the sphere in different spheres based on once another variable, called ***facets***
+
+This way, you can visualize up to 10 variables in a single datavisualization (although this is often a bit of a data-interpretation overdose). Time for the action!
+
+```{r loading_packages_again, message=FALSE, warning=FALSE} 
+library("ggplot2")
+```
+
+## The gg object
+Similar to everything else in R (data, functions, results of statistical analyses, ...), a ggplot viz is also stored as a ggplot object in the R environment. We must first define the sphere, we can then add layer after layer.
+
+### Lazy quick plots: Qplot!
+If you quickly want to check something, you can skip this and simply use qplot:
+
+```{r qplot, message=FALSE, warning=FALSE, fig.width=10,fig.height=2.5} 
+qplot(logs$battery)
+qplot(hour, appcount, data = sessions)
+```
+
+### The real deal: ggplot()
+However, for more advanced visualizations we want to work more granular. First, we define the sphere with an X and a Y axis:
+```{r ggplot_sphere, fig.height=3} 
+g <- ggplot(data = sessions, aes( x = as.numeric(hour), y = duration_sec))
+g
+# an empty canvas, ready for creativity!
+```
+
+## Adding geoms
+To this sphere, we can add ***geoms***. The most common geom is a point (cfr. scatterplot)
+```{r ggplot_geoms, fig.height=3} 
+# this adds points to the sphere, for each row in the dataset
+g + geom_point()
+```
+
+Other often used geoms are:   
+
+* geom_histogram() 
+* geom_bar()
+* geom_smooth()
+* geom_boxplot()
+* geom_dotplot()
+* geom_violin()
+* geom_line()
+* geom_errorbar()
+* ...
+
+You can also add multiple geoms to the sphere if you want (just use a `+` between them)
+
+## Aesthetics
+It becomes even more interesting if we start playing with the ***aesthetics***. For example:
+```{r ggplot_geoms_aes, message=FALSE, warning=FALSE} 
+g + geom_point(aes(color = social_trigger,
+                   size = appcount,
+                   alpha = 0.5,
+                   shape = all_social_apps)) +
+    # remove outliers for the visualization
+    scale_y_continuous(limits = c(0, 60))
+```
+
+
+## Facets
+As you can see, when you add more and more variables, it becomes quite messy. Therefore, it can sometimes be handy to split the graph in subgraphs. This is called ***facetting***. You can use up to two variables to split you viz.
+
+```{r ggplot_facet_1, message=FALSE, warning=FALSE} 
+# one variable
+g + geom_point(aes(color = social_trigger,
+                   size = appcount,
+                   alpha = 0.5,
+                   shape = all_social_apps)) +
+    facet_grid(id ~ .) +
+    scale_y_continuous(limits = c(0, 60))
+```
+
+\newpage
+
+```{r ggplot_facet_2, message=FALSE, warning=FALSE} 
+# two variables
+g + geom_smooth() +
+    facet_grid(id ~ weekday) +
+    scale_y_continuous(limits = c(0, 60))
+
+```
+
+
+## Titles et al.
+You can also change the main theme, the title, the axis labels, axis ranges, ... A good resource is:   
+
+* https://www.rstudio.com/wp-content/uploads/2015/03/ggplot2-cheatsheet.pdf
+
+\newpage
+
+# Now what?
+
+* ***But can you do this?***
+    + Any question on R possibilities and additional processing?
+* ***How do you want to proceed***?
+    + Extra courses?
+    + Recurring meet-ups?
+    + User groups?
+* ***How can you proceed on your own***?
+    + Play & Google (stackoverflow)
+    + Coursera: https://www.coursera.org/specializations/jhu-data-science
+    + https://www.r-bloggers.com/
+* ***What we didn't cover***?
+    + 'for' loops
+    + 'if' / 'else' structures
+    + Merging data
+    + Pattern detection
+    + Exporting data outside R (csv, images, ...)
+    + Advanced functions
+    + APIs for data acquisition
+    + Scraping & parsing
+    + SQL queries
+    + APIs for data annotation (e.g. Microsofts project Oxford)
+    + Elasticsearch
+    + Advanced statistics
+    + Text mining & tidy data
+    + NLP & sentiment analysis
+    + Network analysis
+    + Clean programming
+    + Github & collaborative coding
+    + Shiny apps
+    + Building your own packages
+    + Machine learning
+    + Qualtrics integration
+    + Reading xlsx & SPSS datafiles
+    + Integrating R & Python
+    + ...
